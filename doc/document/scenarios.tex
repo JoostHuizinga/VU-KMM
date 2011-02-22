@@ -1,0 +1,205 @@
+\section{Scenarios}
+\label{sec:scenarios}
+
+\subsection{The car does not start}
+\label{sec:scenario_engine}
+This scenario starts when an unidentified person, called the user, is unable to start his car. To find out why, he starts the Car Repair Assistant on his laptop. First, the car repair assistant compiles a list of possible complaints from its knowledge base. The user picks ``engine does not starts'' as his complaint.
+
+The CRA now reasons backward from the complaint ``engine does not start''. The first set of rules that fires are from the \emph{causes feature} type and they are informally:
+\begin{verbatim}
+if engine-does-not-start then 
+   a possible state of spark-plug is broken
+if engine-does-not-start then 
+   a possible state of spark-plug is no-power
+if engine-does-not-start then 
+   a possible state of starter is broken
+if engine-does-not-start then 
+   a possible state of starter is no-power
+\end{verbatim}
+
+The second set of rules, of type \emph{causes from wire}, that fire based on the first set are:
+\begin{verbatim}
+if the spark-plug has the possible state no power 
+   then a possible state of wire12 is no power
+if the spark-plug has the possible state no power 
+   then a possible state of wire12 is broken
+if the starter has the possible state no power 
+   then a possible state of wire09 is no power
+if the starter has the possible state no power 
+   then a possible state of wire09 is broken
+\end{verbatim}
+
+The rules that fire after these are very similar and they are therefore omitted. When there are no more rules to fire, all possible component-state combinations that have a state of type `faulty' are gathered. For every combination it is tested whether they cause the complaint on there own. 
+
+One hypothesis that is tested is ``the battery is empty''. The CRA now reasons forwards starting from the battery is empty. The rules that fire is shown below.
+\begin{verbatim}
+if the battery is empty 
+   then wire05 has no power
+if the battery is empty 
+   then there is no power on the battery
+\end{verbatim}
+
+The CRA then stops reasoning because the next component in the chain is the battery-dynamo merge. It knows that the merge does not get power from wire 5 but it does not know anything about the other input, wire 4. As such it concludes that ``the battery is empty'' can not cause ``engine does not start'' on its own and it will then try to combine this hypothesis with an other hypothesis that could also not reach the complaint. One such hypothesis is dynamo fuse blown. When Battery empty and dynamo fuse blown tested together as an hypothesis the following rules will fire:
+
+\begin{verbatim}
+if the battery is empty 
+   then wire 5 has no power
+if the dynamo fuse is blown 
+   then wire 4 has no power
+if wire 4 and wire 5 have no power 
+   then the dynamo battery merge has no power
+if the dynamo battery merge has no power 
+   then wire 6 has no power
+if wire 6 has no power 
+   then the battery fuse has no power
+\end{verbatim}
+
+This will again continue until there are no more rules that apply. It will then conclude that ``engine does not start'' has been reached and the hypothesis ``battery empty and dynamo fuse blown'' is added to the complete list of hypothesis.
+
+Next, the CRA will print the list of hypothesis and suggest ``Wire 4 is broken and...''. Note that this list is compressed. The hypothesis ``battery empty and dynamo fuse blown'' is hidden behind the ``battery empty and...'' option.
+
+The car owner will now choose ``dynamo is broken and...'', and then he will choose ``dynamo is broken and the battery is empty''.
+
+The CRA will now test ``dynamo is broken and the battery is empty'' again using forward reasoning. This time it will collect all observables that are caused by the hypothesis, in this case:
+
+\begin{verbatim}
+the charge indicator is off
+there is no power on the battery
+the head light indicator is off
+the left head light gives no light
+the right head light gives no light
+the left head light gives only beam light
+the right head light gives only beam light
+\end{verbatim}
+
+It will then suggest the first observable of the list to the user, in this case ``Do you want to observe if the charge indicator is off? (true, false, no)''. The user wants an other suggestion and types `no'. The CRA now suggests ``Do you want to observe if there is no power on the battery? true/false/no''. The user checks this and finds that the battery has sufficient power. Thus he answers ``false''.
+
+The CRA will now test every hypothesis in the list and remove those that contradict with the observation that the battery as sufficient power. Testing happens, once again, with forward reasoning. For battery is broken the reasoning is very short:
+
+\begin{verbatim}
+if the battery is empty 
+   then wire 5 has no power
+if the battery is empty 
+   then there is no power on the battery
+if there is no power on the battery 
+   and no power on the battery has been observed to be false
+   then there is a contradiction
+\end{verbatim}
+
+Because the battery is at the start of the chain only two sets hypothesis are removed, those that included ``battery is broken'' and those that included ``battery is empty''. After this the remaining hypothesis are shown and the last one is suggested, in this case ``Wire 4 is broken and...''.
+
+Now the user takes the suggestion, which is expanded to ``Wire 4 is broken and wire 5 is broken''. Forward reasoning leads to the following observables:
+\begin{verbatim}
+the head light indicator is off
+the left head light gives no light
+the right head light gives no light
+the left head light gives only beam light
+the right head light gives only beam light
+\end{verbatim}
+
+The user now checks the head light indicator, and notes that it works. Thus he answers ``false''. Once again all hypotheses are checked and all hypothesis before the battery fuse are removed, because if the failure happened before the battery fuse then the head light indicator would not function. Ten hypothesis remain.
+
+The user will now follow the suggestion of the CRA. Unfortunately, all, except one, of the remaining hypothesis have no observables to check, and when choosing them they are immediately skipped and removed from the hypothesis list. The only hypothesis that has an observable is: ``ignition is off''. The user notes that, no, he did not forget to use the ignition while starting the car and the CRA prints the following result:
+
+\begin{verbatim}
+------------REPORT RESULT-------------
+The cause is probably one of the following: 
+ 0 ignition    is Broken
+ 1 coil        is Broken
+ 2 wire 7      is Broken
+ 3 distributor is Broken
+ 4 spark plugs is Broken
+ 5 wire 9      is Broken
+ 6 starter     is Broken
+ 7 wire 10     is Broken
+ 8 wire 11     is Broken
+ 9 wire 12     is Broken
+Try to fix these and, if the problem remains, 
+run the program again.
+\end{verbatim}
+
+Due to the lack of observables the CRA was not able to falsify any of these possible causes and thus our car owner probably has to call the garage to help fix his car.
+
+\subsection{Broken light}
+This scenario starts when the user notes, after starting his car, that his left head light gives only beam light. Thus he starts the CRA and chooses ``left head light gives only beam light'' as his complaint. The CRA will now cover the complaint.
+
+Reasoning backward from ``left head light gives only beam light'' the first six rules that fire are:
+\begin{verbatim}
+if left-head-light-no-light 
+   then a possible state of head-light-left is broken
+if left-head-light-no-light 
+   then a possible state of head-light-left is no-power
+if head-light-left has the possible state no-power 
+   then wire 17 has the possible state broken
+if head-light-left has the possible state no-power 
+   then wire 17 has the possible state no-power
+if wire 17 has the possible state no-power 
+   then fuse-head-light-left has the possible state blown
+if wire 17 has the possible state no-power 
+   then fuse-head-light-left has the possible state no-power
+\end{verbatim}
+
+This goes on until no more rules fire. Then every possible component-state combination with a state from the group of ``faulty states'' are checked forward to see whether they reach the complaint ``left head light gives only beam light''. If not they are combined with an other component-state combination did also not reach the complaint. An example in this process is shown in the scenario of section~\ref{sec:scenario_engine}. Then the CRA prints the list of hypothesis in a compressed way.
+
+The user suspects that the left head light fuse is blown and selects this hypothesis.
+
+The CRA now reasons forward to find all observables caused by ``left head light fuse blown''. The following rules fire:
+\begin{verbatim}
+if left-head-light-fuse is blown 
+   then wire 16 has no power
+if left-head-light-fuse is blown 
+   then wire 17 has no power
+if wire 16 has no power 
+   then the head-light-indicator has no power
+if wire 17 has no power 
+   then the head-light-left has no power
+if head-light-indicator has no power 
+   then head light indicator is off
+if head-light-left has no power 
+   then left head light gives only beam light
+\end{verbatim}
+
+Because ``left head light gives only beam light'' was the complaint, and thus already observed, the only remaining observable is ``head light indicator is off''. The CRA ask: ``Do you want to observe if the head light indicator is off? true/false/no''. The user notes that the head light indicator is on and types `false'. The CRA then checks every hypothesis for contradictions with the observation of ``head light indicator is off''. For example, for wire 27 is broken the following rules fire:
+
+\begin{verbatim}
+if wire 27 is broken 
+   then fuse-head-light-left has no power
+if left-head-light-fuse has no power 
+   then wire 16 has no power
+if left-head-light-fuse has no power blown 
+   then wire 17 has no power
+if wire 16 has no power 
+   then the head-light-indicator has no power
+if wire 17 has no power 
+   then the head-light-left has no power
+if head-light-indicator has no power 
+   then head light indicator is off
+if head-light-left has no power 
+   then left head light gives only beam light
+if head light indicator is off 
+   and head light indicator is off was observed to be false
+   then there is a contradiction.
+\end{verbatim}
+
+The head light indicator is very close to the left beam light and, because of this, there are only two hypothesis left after the observation:
+
+\begin{verbatim}
+-----------SELECT HYPOTHESIS----------
+0 wire 17         is Broken
+1 left head light is Broken
+We suggest:  left head light is Broken
+Do you have an other suggestion (no/nr/id)?
+\end{verbatim}
+
+Since neither of these hypothesis have an observable it does not matter what the user does from this point on. When selecting one of these hypothesis the CRA will note that there are no more observables left and remove it from the list. After removing both hypothesis the result is printed:
+
+\begin{verbatim}
+------------REPORT RESULT-------------
+The cause is probably one of the following: 
+0 wire 17         is Broken
+1 left head light is Broken
+Try to fix these and, if the problem remains, 
+run the program again.
+\end{verbatim}
+
+The user should now try to repair these problems if he is able, or find someone who can do it for him, if he is not.
